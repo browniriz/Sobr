@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Собрания — архив выжимок</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <div class="grain"></div>
+  <header class="topbar">
+    <a class="brand" href="#">
+      <span class="brand-mark">S</span>
+      <span>
+        <strong>Собрания</strong>
+        <small>архив выжимок</small>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="#meetings">Список</a>
+      <a href="#summary">Главное</a>
+      <a href="#actions">Задачи</a>
+      <button id="themeToggle" class="ghost-btn" type="button">Тема</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">Meeting intelligence для Техноточки / Технозалога</div>
+        <h1>Выжимки созвонов, которые можно читать, а не расшифровывать заново</h1>
+        <p>Здесь будут собираться итоги собраний: ключевые темы, решения, задачи и риски.</p>
+        <div class="hero-actions">
+          <a class="primary-btn" href="#meetings">Открыть собрания</a>
+          <a class="secondary-btn" href="#actions">Смотреть задачи</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="toolbar" id="meetings">
+      <div>
+        <h2>Собрания</h2>
+        <p>Первое собрание уже добавлено. Следующие можно будет складывать сюда после транскрибации.</p>
+      </div>
+      <div class="filters" id="filters"></div>
+    </section>
+
+    <section class="layout">
+      <aside class="meeting-list" id="meetingList"></aside>
+      <article class="meeting-detail" id="meetingDetail"></article>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Локальный проект: <code>C:\Users\User\my-project\Sobr</code></span>
+    <span>Данные хранятся в <code>data/meetings.json</code></span>
+  </footer>
+
+  <script src="data/meetings.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
