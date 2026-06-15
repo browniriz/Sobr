@@ -79,7 +79,7 @@ function renderSummary(summary) {
 function renderSections(sections) {
   return `
     <section>
-      <h3 class="section-title">Темы собрания</h3>
+      <h3 class="section-title">Темы созвона</h3>
       <div class="section-grid">
         ${sections.map(section => `
           <article class="section-card" data-type="${section.type}">
@@ -129,7 +129,7 @@ function renderDetail() {
   const meeting = state.meetings.find(item => item.id === state.activeId) || state.meetings[0];
   const target = $('#meetingDetail');
   if (!meeting) {
-    target.innerHTML = '<div class="detail-body">Пока нет собраний.</div>';
+    target.innerHTML = '<div class="detail-body">Пока нет созвонов.</div>';
     return;
   }
   target.innerHTML = `
