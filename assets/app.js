@@ -1,9 +1,9 @@
 const ACCESS_RULES = {
   '1942': { key: 'admin', label: 'Админ', pattern: null },
-  '0825': { key: 'tp', label: 'ТП', pattern: /^Созвон\s+ТП\b/i },
-  '1516': { key: 'tovarovedy', label: 'Товароведы', pattern: /^Созвон\s+Товароведы\b/i },
-  '0174': { key: 'ural', label: 'Урал', pattern: /^Созвон\s+Урал\b/i },
-  '9120': { key: 'siberia', label: 'Сибирь', pattern: /^Созвон\s+Сибирь\b/i }
+  '0825': { key: 'tp', label: 'ТП', titlePrefix: 'Созвон ТП' },
+  '1516': { key: 'tovarovedy', label: 'Товароведы', titlePrefix: 'Созвон Товароведы' },
+  '0174': { key: 'ural', label: 'Урал', titlePrefix: 'Созвон Урал' },
+  '9120': { key: 'siberia', label: 'Сибирь', titlePrefix: 'Созвон Сибирь' }
 };
 
 const state = {
@@ -52,6 +52,16 @@ function getOriginalTitle(meeting) {
   return meeting.originalTitle || meeting.title || '';
 }
 
+function normalizeTitle(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function titleMatchesPrefix(title, prefix) {
+  const normalizedTitle = normalizeTitle(title);
+  const normalizedPrefix = normalizeTitle(prefix);
+  return normalizedTitle === normalizedPrefix || normalizedTitle.startsWith(`${normalizedPrefix} `);
+}
+
 function applyTitleOverrides(meeting) {
   const originalTitle = meeting.originalTitle || meeting.title || '';
   return {
@@ -64,7 +74,7 @@ function applyTitleOverrides(meeting) {
 function canRoleSeeMeeting(role, meeting) {
   if (!role) return false;
   if (role.key === 'admin') return true;
-  return role.pattern.test(getOriginalTitle(meeting));
+  return titleMatchesPrefix(getOriginalTitle(meeting), role.titlePrefix);
 }
 
 function setVisibleMeetings() {
