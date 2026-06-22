@@ -1,7 +1,18 @@
+const ACCESS_RULES = {
+  '1942': { key: 'admin', label: 'Админ', pattern: null },
+  '0825': { key: 'tp', label: 'ТП', pattern: /^Созвон\s+ТП\b/i },
+  '1516': { key: 'tovarovedy', label: 'Товароведы', pattern: /^Созвон\s+Товароведы\b/i },
+  '0174': { key: 'ural', label: 'Урал', pattern: /^Созвон\s+Урал\b/i },
+  '9120': { key: 'siberia', label: 'Сибирь', pattern: /^Созвон\s+Сибирь\b/i }
+};
+
 const state = {
+  allMeetings: [],
   meetings: [],
   activeId: null,
-  activeFilter: 'Все'
+  activeFilter: 'Все',
+  role: null,
+  titleOverrides: {}
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -12,8 +23,65 @@ const el = (tag, className, text) => {
   return node;
 };
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function formatDate(dateString) {
   return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(dateString));
+}
+
+function loadTitleOverrides() {
+  try {
+    return JSON.parse(localStorage.getItem('sobr-title-overrides') || '{}');
+  } catch (_error) {
+    return {};
+  }
+}
+
+function saveTitleOverrides() {
+  localStorage.setItem('sobr-title-overrides', JSON.stringify(state.titleOverrides));
+}
+
+function getOriginalTitle(meeting) {
+  return meeting.originalTitle || meeting.title || '';
+}
+
+function applyTitleOverrides(meeting) {
+  const originalTitle = meeting.originalTitle || meeting.title || '';
+  return {
+    ...meeting,
+    originalTitle,
+    title: state.titleOverrides[meeting.id] || originalTitle
+  };
+}
+
+function canRoleSeeMeeting(role, meeting) {
+  if (!role) return false;
+  if (role.key === 'admin') return true;
+  return role.pattern.test(getOriginalTitle(meeting));
+}
+
+function setVisibleMeetings() {
+  const enriched = state.allMeetings.map(applyTitleOverrides);
+  state.meetings = enriched.filter(meeting => canRoleSeeMeeting(state.role, meeting));
+  if (!state.meetings.find(item => item.id === state.activeId)) {
+    state.activeId = state.meetings[0]?.id || null;
+  }
+  if (!getAvailableTags().includes(state.activeFilter)) {
+    state.activeFilter = 'Все';
+  }
+}
+
+function getAvailableTags() {
+  const allTags = new Set(['Все']);
+  state.meetings.forEach(meeting => meeting.tags.forEach(tag => allTags.add(tag)));
+  return [...allTags];
 }
 
 function getFilteredMeetings() {
@@ -21,19 +89,88 @@ function getFilteredMeetings() {
   return state.meetings.filter(meeting => meeting.tags.includes(state.activeFilter));
 }
 
+function showApp() {
+  $('#authScreen')?.classList.add('hidden');
+  $('#appShell')?.classList.remove('hidden');
+  $('#footer')?.classList.remove('hidden');
+}
+
+function showAuth(message = '') {
+  $('#authScreen')?.classList.remove('hidden');
+  $('#appShell')?.classList.add('hidden');
+  $('#footer')?.classList.add('hidden');
+  const error = $('#authError');
+  if (error) {
+    error.textContent = message;
+    error.hidden = !message;
+  }
+}
+
+function loginByCode(code) {
+  const role = ACCESS_RULES[code.trim()];
+  if (!role) {
+    showAuth('Неверный код доступа');
+    return;
+  }
+  state.role = role;
+  localStorage.setItem('sobr-access-code', code.trim());
+  setVisibleMeetings();
+  showApp();
+  render();
+}
+
+function logout() {
+  state.role = null;
+  state.activeId = null;
+  state.activeFilter = 'Все';
+  localStorage.removeItem('sobr-access-code');
+  renderUserBadge();
+  showAuth();
+}
+
+function setupAuth() {
+  const form = $('#authForm');
+  const input = $('#accessCode');
+  form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    loginByCode(input?.value || '');
+  });
+  $('#logoutBtn')?.addEventListener('click', logout);
+
+  const savedCode = localStorage.getItem('sobr-access-code');
+  if (savedCode && ACCESS_RULES[savedCode]) {
+    loginByCode(savedCode);
+  } else {
+    showAuth();
+  }
+}
+
+function renderUserBadge() {
+  const badge = $('#userBadge');
+  if (!badge) return;
+  if (!state.role) {
+    badge.textContent = '';
+    badge.hidden = true;
+    return;
+  }
+  badge.textContent = state.role.key === 'admin'
+    ? 'Доступ: Админ · все созвоны'
+    : `Доступ: ${state.role.label} · ${state.meetings.length} созв.`;
+  badge.hidden = false;
+}
+
 function renderFilters() {
-  const allTags = new Set(['Все']);
-  state.meetings.forEach(meeting => meeting.tags.forEach(tag => allTags.add(tag)));
   const target = $('#filters');
+  if (!target) return;
   target.innerHTML = '';
-  [...allTags].forEach(tag => {
+  getAvailableTags().forEach(tag => {
     const btn = el('button', `filter-btn ${tag === state.activeFilter ? 'active' : ''}`, tag);
     btn.type = 'button';
     btn.addEventListener('click', () => {
       state.activeFilter = tag;
       const filtered = getFilteredMeetings();
       if (!filtered.find(item => item.id === state.activeId)) {
-        state.activeId = filtered[0]?.id || state.meetings[0]?.id;
+        state.activeId = filtered[0]?.id || state.meetings[0]?.id || null;
       }
       render();
     });
@@ -43,8 +180,14 @@ function renderFilters() {
 
 function renderMeetingList() {
   const target = $('#meetingList');
+  if (!target) return;
   target.innerHTML = '';
-  getFilteredMeetings().forEach(meeting => {
+  const filtered = getFilteredMeetings();
+  if (!filtered.length) {
+    target.innerHTML = '<div class="empty-state">Нет созвонов для этого доступа или фильтра.</div>';
+    return;
+  }
+  filtered.forEach(meeting => {
     const card = el('button', `meeting-card ${meeting.id === state.activeId ? 'active' : ''}`);
     card.type = 'button';
     card.addEventListener('click', () => {
@@ -52,9 +195,9 @@ function renderMeetingList() {
       render();
     });
     card.innerHTML = `
-      <strong>${meeting.title}</strong>
-      <small>${formatDate(meeting.date)} · ${meeting.duration}</small>
-      <div class="tags">${meeting.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}</div>
+      <strong>${escapeHtml(meeting.title)}</strong>
+      <small>${escapeHtml(formatDate(meeting.date))} · ${escapeHtml(meeting.duration)}</small>
+      <div class="tags">${meeting.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>
     `;
     target.append(card);
   });
@@ -68,7 +211,7 @@ function renderSummary(summary) {
         ${summary.map((item, index) => `
           <div class="summary-item">
             <span class="summary-num">${index + 1}</span>
-            <span>${item}</span>
+            <span>${escapeHtml(item)}</span>
           </div>
         `).join('')}
       </div>
@@ -82,9 +225,9 @@ function renderSections(sections) {
       <h3 class="section-title">Темы созвона</h3>
       <div class="section-grid">
         ${sections.map(section => `
-          <article class="section-card" data-type="${section.type}">
-            <h3>${section.title}</h3>
-            <ul>${section.items.map(item => `<li>${item}</li>`).join('')}</ul>
+          <article class="section-card" data-type="${escapeHtml(section.type)}">
+            <h3>${escapeHtml(section.title)}</h3>
+            <ul>${section.items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
           </article>
         `).join('')}
       </div>
@@ -97,7 +240,13 @@ function renderActions(actions) {
     managers: 'Управляющим',
     leadership: 'Загиру / руководству',
     tehnolog: 'По товароведу',
-    kemerovo: 'По Кемерово'
+    kemerovo: 'По Кемерово',
+    support: 'Поддержке',
+    training: 'Обучение',
+    accounting_control: 'Касса / сверки',
+    ural_team: 'Команде Урала',
+    accounting: 'Бухгалтерии',
+    data_quality: 'Качество данных'
   };
   return `
     <section id="actions">
@@ -105,8 +254,8 @@ function renderActions(actions) {
       <div class="actions-grid">
         ${Object.entries(actions).map(([key, items]) => `
           <article class="actions-card">
-            <h3>${titles[key] || key}</h3>
-            <ul>${items.map(item => `<li>${item}</li>`).join('')}</ul>
+            <h3>${escapeHtml(titles[key] || key)}</h3>
+            <ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
           </article>
         `).join('')}
       </div>
@@ -119,24 +268,67 @@ function renderRisks(risks) {
     <section>
       <article class="risk-card">
         <h3>Риски</h3>
-        <ul>${risks.map(risk => `<li>${risk}</li>`).join('')}</ul>
+        <ul>${risks.map(risk => `<li>${escapeHtml(risk)}</li>`).join('')}</ul>
       </article>
     </section>
   `;
 }
 
+function renderRenameControls(meeting) {
+  if (state.role?.key !== 'admin') return '';
+  return `
+    <form class="rename-form" id="renameForm">
+      <label for="meetingTitleInput">Название созвона</label>
+      <div class="rename-row">
+        <input id="meetingTitleInput" type="text" value="${escapeHtml(meeting.title)}" autocomplete="off" />
+        <button class="secondary-btn compact" type="submit">Переименовать</button>
+        <button class="ghost-btn compact" id="resetTitleBtn" type="button">Сбросить</button>
+      </div>
+      <small>Переименование сохраняется в этом браузере. Исходная категория доступа остаётся по старому названию: ${escapeHtml(getOriginalTitle(meeting))}.</small>
+    </form>
+  `;
+}
+
+function setupRenameControls(meeting) {
+  if (state.role?.key !== 'admin') return;
+  const form = $('#renameForm');
+  const input = $('#meetingTitleInput');
+  const resetBtn = $('#resetTitleBtn');
+  form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const nextTitle = input.value.trim();
+    if (!nextTitle) return;
+    if (nextTitle === getOriginalTitle(meeting)) {
+      delete state.titleOverrides[meeting.id];
+    } else {
+      state.titleOverrides[meeting.id] = nextTitle;
+    }
+    saveTitleOverrides();
+    setVisibleMeetings();
+    render();
+  });
+  resetBtn?.addEventListener('click', () => {
+    delete state.titleOverrides[meeting.id];
+    saveTitleOverrides();
+    setVisibleMeetings();
+    render();
+  });
+}
+
 function renderDetail() {
   const meeting = state.meetings.find(item => item.id === state.activeId) || state.meetings[0];
   const target = $('#meetingDetail');
+  if (!target) return;
   if (!meeting) {
-    target.innerHTML = '<div class="detail-body">Пока нет созвонов.</div>';
+    target.innerHTML = '<div class="detail-body">Для этого кода пока нет доступных созвонов.</div>';
     return;
   }
   target.innerHTML = `
     <header class="detail-head">
-      <div class="eyebrow">${meeting.tags.join(' / ')}</div>
-      <h2>${meeting.title}</h2>
-      <div class="meta">${formatDate(meeting.date)} · длительность ${meeting.duration}</div>
+      <div class="eyebrow">${meeting.tags.map(escapeHtml).join(' / ')}</div>
+      <h2>${escapeHtml(meeting.title)}</h2>
+      <div class="meta">${escapeHtml(formatDate(meeting.date))} · длительность ${escapeHtml(meeting.duration)}</div>
+      ${renderRenameControls(meeting)}
     </header>
     <div class="detail-body">
       ${renderSummary(meeting.hero.summary)}
@@ -145,9 +337,13 @@ function renderDetail() {
       ${renderRisks(meeting.risks)}
     </div>
   `;
+  setupRenameControls(meeting);
 }
 
 function render() {
+  if (!state.role) return;
+  setVisibleMeetings();
+  renderUserBadge();
   renderFilters();
   renderMeetingList();
   renderDetail();
@@ -156,7 +352,7 @@ function render() {
 function setupTheme() {
   const saved = localStorage.getItem('sobr-theme') || 'dark';
   document.documentElement.dataset.theme = saved;
-  $('#themeToggle').addEventListener('click', () => {
+  $('#themeToggle')?.addEventListener('click', () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     localStorage.setItem('sobr-theme', next);
@@ -165,14 +361,14 @@ function setupTheme() {
 
 function init() {
   setupTheme();
-  state.meetings = window.MEETINGS_DATA || [];
-  state.activeId = state.meetings[0]?.id;
-  render();
+  state.titleOverrides = loadTitleOverrides();
+  state.allMeetings = window.MEETINGS_DATA || [];
+  setupAuth();
 }
 
 try {
   init();
 } catch (error) {
   console.error(error);
-  $('#meetingDetail').innerHTML = `<div class="detail-body">Не удалось загрузить данные: ${error.message}</div>`;
+  showAuth(`Не удалось загрузить данные: ${error.message}`);
 }

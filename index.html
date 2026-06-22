@@ -21,11 +21,27 @@
       <a href="#meetings">Список</a>
       <a href="#summary">Главное</a>
       <a href="#actions">Задачи</a>
+      <span id="userBadge" class="user-badge" hidden></span>
+      <button id="logoutBtn" class="ghost-btn" type="button">Выйти</button>
       <button id="themeToggle" class="ghost-btn" type="button">Тема</button>
     </nav>
   </header>
 
-  <main>
+  <section class="auth-screen" id="authScreen">
+    <form class="auth-card" id="authForm">
+      <div class="eyebrow">Доступ к архиву</div>
+      <h1>Введите код, чтобы открыть нужные созвоны</h1>
+      <p>Код определяет, какие записи будут видны в списке и фильтрах.</p>
+      <label for="accessCode">Код доступа</label>
+      <div class="auth-row">
+        <input id="accessCode" name="accessCode" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Например, 1942" required />
+        <button class="primary-btn" type="submit">Войти</button>
+      </div>
+      <p id="authError" class="auth-error" hidden></p>
+    </form>
+  </section>
+
+  <main id="appShell" class="hidden">
     <section class="hero">
       <div class="hero-copy">
         <div class="eyebrow">Meeting intelligence для Техноточки / Технозалога</div>
@@ -52,7 +68,7 @@
     </section>
   </main>
 
-  <footer class="footer">
+  <footer class="footer hidden" id="footer">
     <span>Локальный проект: <code>C:\Users\User\my-project\Sobr</code></span>
     <span>Данные хранятся в <code>data/meetings.json</code></span>
   </footer>
