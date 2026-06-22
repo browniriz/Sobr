@@ -284,6 +284,23 @@ function renderRisks(risks) {
   `;
 }
 
+function renderAudio(meeting) {
+  if (!meeting.audioUrl) return '';
+  const size = meeting.audioSizeLabel ? ` · ${escapeHtml(meeting.audioSizeLabel)}` : '';
+  return `
+    <section>
+      <article class="audio-card">
+        <div>
+          <h3>Аудиозапись созвона</h3>
+          <p>Сжатая версия для прослушивания на сайте${size}</p>
+        </div>
+        <audio controls preload="metadata" src="${escapeHtml(meeting.audioUrl)}"></audio>
+        <a class="audio-link" href="${escapeHtml(meeting.audioUrl)}" download>Скачать аудио</a>
+      </article>
+    </section>
+  `;
+}
+
 function renderRenameControls(meeting) {
   if (state.role?.key !== 'admin') return '';
   return `
@@ -341,6 +358,7 @@ function renderDetail() {
       ${renderRenameControls(meeting)}
     </header>
     <div class="detail-body">
+      ${renderAudio(meeting)}
       ${renderSummary(meeting.hero.summary)}
       ${renderSections(meeting.sections)}
       ${renderActions(meeting.actions)}
