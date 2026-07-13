@@ -211,22 +211,45 @@ h1 { margin: 12px 0 14px; font-size: clamp(36px, 5.2vw, 62px); line-height: 0.96
   margin-top: 24px;
   border-radius: var(--radius-xl);
   padding: 24px;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(210px, 270px) minmax(0, 1fr);
   gap: 22px;
-  align-items: end;
+  align-items: start;
+}
+.toolbar > div:first-child {
+  min-width: 0;
+  align-self: center;
 }
 h2 { margin: 0; font-size: 30px; letter-spacing: -0.04em; }
-.toolbar p { margin: 8px 0 0; color: var(--muted); }
-.filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.toolbar p { margin: 8px 0 0; color: var(--muted); line-height: 1.42; }
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-content: flex-start;
+  gap: 8px;
+  max-height: 162px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.55) transparent;
+}
+.filters::-webkit-scrollbar { width: 8px; }
+.filters::-webkit-scrollbar-track { background: transparent; }
+.filters::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.45);
+  border-radius: 999px;
+}
 .filter-btn {
-  min-height: 38px;
+  min-height: 34px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: rgba(255,255,255,0.04);
   color: var(--muted);
   cursor: pointer;
-  padding: 0 13px;
+  padding: 0 12px;
+  font-size: 14px;
+  white-space: nowrap;
 }
 .filter-btn.active { color: white; background: linear-gradient(135deg, var(--accent), #4f46e5); border-color: transparent; }
 
@@ -331,8 +354,8 @@ code { color: var(--accent-2); }
 @media (max-width: 900px) {
   .hero, .layout { grid-template-columns: 1fr; }
   .meeting-list { position: static; }
-  .toolbar { align-items: start; flex-direction: column; }
-  .filters { justify-content: flex-start; }
+  .toolbar { grid-template-columns: 1fr; align-items: start; }
+  .filters { justify-content: flex-start; max-height: 220px; }
   .summary-grid, .section-grid, .actions-grid { grid-template-columns: 1fr; }
   .nav { flex-wrap: wrap; justify-content: flex-end; }
   .nav a { display: none; }
